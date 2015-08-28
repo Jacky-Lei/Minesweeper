@@ -1,5 +1,48 @@
 require 'byebug'
 class MineSweeper
+  attr_accessor :user, :board
+
+  def initialize(user = User.new, board = Board.new)
+    @user = user
+    @board = board
+  end
+
+  def play
+    board.populate_grid
+
+    until board.won?
+      system("clear")
+      board.display
+      move = take_turn
+      action, x, y = move[0], move[1].to_i, move[2].to_i
+
+      if action == "flag"
+        board.flag_bomb(x, y)
+      elsif action == "unflag"
+        board.unflag_bomb(x, y)
+      elsif action == "reveal"
+        board.reveal(x, y)
+      else
+        puts "Invalid move."
+      end
+    end
+    puts "You win!"
+  end
+
+  def take_turn
+    user.take_turn
+  end
+end
+
+class User
+
+  def initialize
+  end
+
+  def take_turn
+    puts "Enter your move: (flag/unflag/reveal, x, y)"
+    gets.chomp.split(", ")
+  end
 end
 
 class Board
@@ -7,14 +50,26 @@ class Board
   attr_reader :number_bombs, :size
 
 
-  def initialize(number_bombs = 2, size = 3)
+  def initialize(number_bombs = 10, size = 8)
     @grid = Array.new(size) { Array.new(size) }
     @number_bombs = number_bombs
     @size = size
   end
 
+  def won?
+    grid.all? do |row|
+      row.all? do |tile|
+        tile.bomb ? tile.flagged : true
+      end
+    end
+  end
+
+  def lose
+    Kernel.abort("You lose!")
+  end
+
   def reveal(row,col)
-    return "game over!" if self[row,col].bomb == true
+    return lose if self[row,col].bomb == true
     return if self[row,col].state == :up
     self[row,col].state = :up
 
@@ -50,6 +105,10 @@ class Board
 
   def flag_bomb(row,col)
     self[row,col].flag_bomb
+  end
+
+  def unflag_bomb(row,col)
+    self[row,col].unflag_bomb
   end
 
   def neighbors(row, col)
@@ -103,5 +162,9 @@ class Tile
 
   def flag_bomb
     @flagged = true
+  end
+
+  def unflag_bomb
+    @flagged = false
   end
 end
