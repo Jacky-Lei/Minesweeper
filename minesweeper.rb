@@ -1,3 +1,4 @@
+require 'yaml'
 require 'byebug'
 class MineSweeper
   attr_accessor :user, :board
@@ -14,6 +15,8 @@ class MineSweeper
       system("clear")
       board.display
       move = take_turn
+      save if move[0] == "save"
+
       action, x, y = move[0], move[1].to_i, move[2].to_i
 
       if action == "flag"
@@ -32,6 +35,15 @@ class MineSweeper
   def take_turn
     user.take_turn
   end
+
+  def save
+    puts "Enter title:"
+    name = gets.chomp
+    File.open("#{name}", "w") do |f|
+      f.puts self.to_yaml
+    end
+    Kernel.abort("Game saved!")
+  end
 end
 
 class User
@@ -40,7 +52,7 @@ class User
   end
 
   def take_turn
-    puts "Enter your move: (flag/unflag/reveal, x, y)"
+    puts "Enter your move: (flag/unflag/reveal/save, x, y)"
     gets.chomp.split(", ")
   end
 end
@@ -83,12 +95,12 @@ class Board
       display_rows = row.each_with_index.map do |col, cidx|
         tile_spot = self[ridx, cidx]
         if tile_spot.state == :down
-          tile_spot.flagged ? "F" : "*"
+          tile_spot.flagged ? :F : :*
         else
           num_of_bombs = neighbors(ridx, cidx).inject(0) do |accum, neighbor|
             self[*neighbor].bomb ? accum + 1 : accum
           end
-          num_of_bombs == 0 ? "_" : num_of_bombs
+          num_of_bombs == 0 ? :_ : num_of_bombs
         end
       end
       puts "#{display_rows}"
@@ -166,5 +178,14 @@ class Tile
 
   def unflag_bomb
     @flagged = false
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  if ARGV[0]
+    YAML.load_file(ARGV.shift).play
+  else
+    game = MineSweeper.new
+    game.play
   end
 end
