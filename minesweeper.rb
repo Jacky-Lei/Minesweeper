@@ -1,19 +1,11 @@
+require 'byebug'
 class MineSweeper
-
-
 end
 
 class Board
   attr_accessor :grid
   attr_reader :number_bombs, :size
 
-  def [](row,col)
-    @grid[row][col]
-  end
-
-  def []=(row, col, value)
-    @grid[row][col] = value
-  end
 
   def initialize(number_bombs = 2, size = 3)
     @grid = Array.new(size) { Array.new(size) }
@@ -23,12 +15,37 @@ class Board
 
   def reveal(row,col)
     return "game over!" if self[row,col].bomb == true
-    return if self[row,col].state = :up
+    return if self[row,col].state == :up
     self[row,col].state = :up
-    if neighbors(row, col).none? { |neighbor| self[*neighbor].bomb ||
-      self[*neighbor].flagged}
+
+    if neighbors(row, col).none? { |neighbor| self[*neighbor].bomb || self[*neighbor].flagged  }
       neighbors(row, col).each { |neighbor| reveal(*neighbor) }
     end
+  end
+
+  def display
+    grid.each_with_index do |row, ridx|
+      display_rows = row.each_with_index.map do |col, cidx|
+        tile_spot = self[ridx, cidx]
+        if tile_spot.state == :down
+          tile_spot.flagged ? "F" : "*"
+        else
+          num_of_bombs = neighbors(ridx, cidx).inject(0) do |accum, neighbor|
+            self[*neighbor].bomb ? accum + 1 : accum
+          end
+          num_of_bombs == 0 ? "_" : num_of_bombs
+        end
+      end
+      puts "#{display_rows}"
+    end
+  end
+
+  def [](row,col)
+    @grid[row][col]
+  end
+
+  def []=(row, col, value)
+    @grid[row][col] = value
   end
 
   def flag_bomb(row,col)
