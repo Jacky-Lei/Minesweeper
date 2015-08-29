@@ -9,40 +9,39 @@ class MineSweeper
     @user = user
     @board = board
     board.populate_grid
-    debugger
   end
 
   def play
-
-    #Refactor into helper methods
     until board.won?
-      system("clear")
-      board.display
-      move = take_turn
-      save if move[0] == "save"
-
-      action, x, y = move[0], move[1].to_i, move[2].to_i
-
-      # Refactor to case
-      if action == "flag"
-        board.flag_bomb(x, y)
-      elsif action == "unflag"
-        board.unflag_bomb(x, y)
-      elsif action == "reveal"
-        board.reveal(x, y)
-      else
-        puts "Invalid move."
-      end
+      render_board
+      perform_action(take_turn)
     end
     puts "You win!"
+  end
+
+  private
+
+  def render_board
+    system("clear")
+    board.display
   end
 
   def take_turn
     user.take_turn
   end
 
+  def perform_action(move)
+    action, x, y = move[0], move[1].to_i, move[2].to_i
 
-  # Move some functionality to be private
+    case action
+    when "save" then save
+    when "flag" then board.flag_bomb(x, y)
+    when "unflag" then board.unflag_bomb(x, y)
+    when "reveal" then board.reveal(x, y)
+    else puts "Invalid move."
+    end
+  end
+
   def save
     puts "Enter title:"
     name = gets.chomp
@@ -55,9 +54,6 @@ end
 
 class User
 
-  def initialize
-  end
-
   def take_turn
     puts "Enter your move: (flag/unflag/reveal/save, x, y)"
     gets.chomp.split(", ")
@@ -68,17 +64,15 @@ class Board
   attr_accessor :grid
   attr_reader :number_bombs, :size
 
-
   def initialize(number_bombs = 10, size = 8)
     @grid = Array.new(size) { Array.new(size) }
     @number_bombs = number_bombs
     @size = size
   end
 
-  # Add flagged_bomb
   def won?
     grid.flatten.all? do |tile|
-      (tile.bomb && tile.flagged) || tile.state == :up
+      tile.flagged_bomb? || tile.tile_revealed?
     end
   end
 
@@ -86,18 +80,26 @@ class Board
     Kernel.abort("You lose!")
   end
 
-
-  # Refactor
   def reveal(row,col)
     lose if self[row,col].bomb == true
-    return if self[row,col].state == :up
-    self[row,col].state = :up
+    return if self[row,col].tile_revealed?
+    self[row,col].reveal #won't work if reveal doesn't use instance var @state
+    neighborhood = neighbors(row, col)
 
-    if neighbors(row, col).none? { |neighbor| self[*neighbor].bomb || self[*neighbor].flagged  }
-      neighbors(row, col).each { |neighbor| reveal(*neighbor) }
+    if neighborhood.none? { |neighbor| flag_or_bomb?(neighbor) }
+      reveal_neighbors(neighborhood)
     end
   end
 
+  #each_index
+  def populate_grid
+    bombs = bomb_order
+    grid.each_with_index do |row, row_idx|
+      row.each_with_index do |col, col_idx|
+        grid[row_idx][col_idx] = Tile.new(bombs.pop)
+      end
+    end
+  end
 
   # Refactor to be more concise and readable
   def display
@@ -118,6 +120,16 @@ class Board
       end
       puts "#{display_rows}"
     end
+  end
+
+  private
+
+  def flag_or_bomb?(neighbor)
+    self[*neighbor].bomb || self[*neighbor].flagged
+  end
+
+  def reveal_neighbors(neighborhood)
+    neighborhood.each { |neighbor| reveal(*neighbor) }
   end
 
   def [](row,col)
@@ -155,15 +167,8 @@ class Board
     end
   end
 
-  #each_index
-  def populate_grid
-    bombs = bomb_order
-    grid.each_with_index do |row, row_idx|
-      row.each_with_index do |col, col_idx|
-        grid[row_idx][col_idx] = Tile.new(bombs.pop)
-      end
-    end
-  end
+
+
 
   # Renamed to be more semantically meaningful
   def bomb_order
@@ -194,6 +199,18 @@ class Tile
 
   def unflag_bomb
     @flagged = false
+  end
+
+  def flagged_bomb?
+    flagged && bomb
+  end
+
+  def tile_revealed?
+    state == :up
+  end
+
+  def reveal
+    @state = :up
   end
 end
 
